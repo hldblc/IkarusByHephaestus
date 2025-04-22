@@ -35,6 +35,7 @@ public class IkarusTheCompanion : ModuleRules
 				"AIModule",
 				"GameplayTasks",
 				"GameplayAbilities",
+				"GameFeatures",
 				"GameplayTags",
 				"NavigationSystem",
 				"UMG",
