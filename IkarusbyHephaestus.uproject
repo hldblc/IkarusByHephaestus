@@ -37,6 +37,14 @@
 		{
 			"Name": "SmartObjects",
 			"Enabled": true
+		},
+		{
+			"Name": "DaySequence",
+			"Enabled": true
+		},
+		{
+			"Name": "OnlineFramework",
+			"Enabled": true
 		}
 	]
 }

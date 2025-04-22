@@ -4,7 +4,7 @@
 	"VersionName": "1.0",
 	"FriendlyName": "IkarusTheCompanion",
 	"Description": "First born of Hephaestus Lab, ladies and gentlemen, it's Ikarus!",
-	"Category": "Other",
+	"Category": "Plugin",
 	"CreatedBy": "HephaestusLab",
 	"CreatedByURL": "",
 	"DocsURL": "",
@@ -19,6 +19,31 @@
 			"Name": "IkarusTheCompanion",
 			"Type": "Runtime",
 			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "GameplayAbilities",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "GameplayTagsEditor",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "GameplayStateTree",
+			"Enabled": true
+		},
+		{
+			"Name": "ModularGameplay",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "EnhancedInput",
+			"Enabled": true
 		}
 	]
 }

@@ -2,6 +2,7 @@
 
 using UnrealBuildTool;
 
+// ReSharper disable once InconsistentNaming
 public class IkarusTheCompanion : ModuleRules
 {
 	public IkarusTheCompanion(ReadOnlyTargetRules Target) : base(Target)
@@ -33,6 +34,8 @@ public class IkarusTheCompanion : ModuleRules
 				"EnhancedInput",
 				"AIModule",
 				"GameplayTasks",
+				"GameplayAbilities",
+				"GameplayTags",
 				"NavigationSystem",
 				"UMG",
 				"Slate",
