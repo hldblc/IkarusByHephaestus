@@ -21,12 +21,28 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-	
+	// Get the task component
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	class UCompanionTaskComponent* GetTaskComponent() const { return CompanionTaskComponent; }
 
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	
-
-
+    
+	// Companion task component for managing AI tasks
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
+	class UCompanionTaskComponent* CompanionTaskComponent;
+    
+	// Cached reference to the companion's AI controller
+	UPROPERTY()
+	class AAICompanionController* AIController;
+    
+	// Update the blackboard with current status
+	void UpdateBlackboard();
+    
+	// Movement input functions
+	void MoveForward(float Value);
+	void MoveRight(float Value);
+	void Turn(float Value);
+	void LookUp(float Value);
 };
