@@ -12,6 +12,8 @@
 #include "CompanionCore/CoreEnums/CompanionEnums.h"
 #include "CompanionTaskData.generated.h"
 
+
+
 /**
  * Core data structure for Behavior Tree tasks related to companion AI.
  * Contains common properties used by the task component system.

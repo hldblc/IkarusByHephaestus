@@ -3,6 +3,21 @@
 #include "CoreMinimal.h"
 #include "CompanionEnums.generated.h"
 
+UENUM(BlueprintType)
+enum class ECompanionMovementSpeed : uint8
+{
+	Idle UMETA(DisplayName = "Idle"),
+	Walking UMETA(DisplayName = "Walking"),
+	Running UMETA(DisplayName = "Running"),
+	Climbing UMETA(DisplayName = "Climbing"),
+	Jumping UMETA(DisplayName = "Jumping"),
+	Sprinting UMETA(DisplayName = "Sprinting"),
+	Swimming UMETA(DisplayName = "Swimming"),
+	Flying UMETA(DisplayName = "Flying"),
+	Teleporting UMETA(DisplayName = "Teleporting")
+	
+};
+
 /**
  * Optimized companion system enums for advanced AI behavior
  * All enums use uint8 for maximum memory efficiency

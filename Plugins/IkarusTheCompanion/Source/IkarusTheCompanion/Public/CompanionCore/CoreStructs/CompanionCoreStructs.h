@@ -7,6 +7,20 @@
 #include "Engine/DataTable.h"
 #include "CompanionCoreStructs.generated.h"
 
+/** Designer-editable bundle of movement speeds. */
+USTRUCT(BlueprintType)
+struct FCompanionMovementPreset : public FTableRowBase
+{
+    GENERATED_BODY()
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly) float IdleSpeed     = 0.f;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly) float WalkingSpeed  = 225.f;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly) float RunningSpeed  = 450.f;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly) float SprintSpeed   = 675.f;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly) float SwimmingSpeed = 200.f;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly) float FlyingSpeed   = 500.f;
+};
+
 /**
  * A structure representing the core stats of a companion entity.
  * This structure is designed to track critical vitals such as health, stamina,
@@ -130,4 +144,5 @@ struct IKARUSTHECOMPANION_API FGatherResourceMemory
     /** Maximum distance at which gathering is possible */
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Gather")
     float GatherRange = 200.0f;
+    FGatherResourceMemory();
 };

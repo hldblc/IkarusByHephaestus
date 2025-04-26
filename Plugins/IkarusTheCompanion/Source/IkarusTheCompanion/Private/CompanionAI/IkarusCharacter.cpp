@@ -1,128 +1,134 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-#include "IkarusTheCompanion/Public/CompanionAI/IkarusCharacter.h"
+#include "CompanionAI/IkarusCharacter.h"
 #include "CompanionAI/Components/CompanionTaskComponent.h"
 #include "CompanionAI/CompanionControllers/AICompanionController.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
-#include "Components/CapsuleComponent.h"
-#include "Camera/CameraComponent.h"
-#include "GameFramework/SpringArmComponent.h"
 
-// Sets default values
-AIkarusCharacter::AIkarusCharacter()
+namespace
 {
-    // Set this character to call Tick() every frame
-    PrimaryActorTick.bCanEverTick = true;
-    
-    // Create and attach the companion task component
-    CompanionTaskComponent = CreateDefaultSubobject<UCompanionTaskComponent>(TEXT("CompanionTaskComponent"));
-    
-    // Configure character movement
-    GetCharacterMovement()->bOrientRotationToMovement = true;
-    GetCharacterMovement()->RotationRate = FRotator(0.0f, 540.0f, 0.0f);
-    GetCharacterMovement()->JumpZVelocity = 600.f;
-    GetCharacterMovement()->AirControl = 0.2f;
-    
-    // Don't rotate when the controller rotates
-    bUseControllerRotationPitch = false;
-    bUseControllerRotationYaw = false;
-    bUseControllerRotationRoll = false;
+    constexpr TCHAR KEY_PlayerRef[]          = TEXT("PlayerRef");
+    constexpr TCHAR KEY_CompanionLocation[]  = TEXT("CompanionLocation");
+    constexpr TCHAR KEY_CompanionDistance[]  = TEXT("CompanionDistance");
+    constexpr TCHAR KEY_CompanionProximity[] = TEXT("CompanionProximity");
+    constexpr TCHAR KEY_LastKnownPlayerLocation[] = TEXT("LastKnownPlayerLocation");
+    constexpr float MaxProximityRange = 2000.f;
 }
 
-// Called when the game starts or when spawned
+/* ===== ctor ===== */
+AIkarusCharacter::AIkarusCharacter()
+{
+    bReplicates = true;
+    PrimaryActorTick.bCanEverTick = true;
+
+    CompanionTaskComponent = CreateDefaultSubobject<UCompanionTaskComponent>(TEXT("CompanionTaskComponent"));
+
+    MoveComp = GetCharacterMovement();
+    check(MoveComp);
+
+    MoveComp->bOrientRotationToMovement = true;
+    MoveComp->RotationRate              = {0.f, 540.f, 0.f};
+    MoveComp->JumpZVelocity             = 600.f;
+    MoveComp->AirControl                = 0.2f;
+
+    bUseControllerRotationPitch =
+    bUseControllerRotationYaw   =
+    bUseControllerRotationRoll  = false;
+}
+
+/* ===== replication ===== */
+void AIkarusCharacter::GetLifetimeReplicatedProps(
+        TArray<FLifetimeProperty>& OutLifetimeProps) const   
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AIkarusCharacter, MovementPresetRow);
+}
+
+/* ===== BeginPlay ===== */
 void AIkarusCharacter::BeginPlay()
 {
     Super::BeginPlay();
-    
-    // Get and cache the AI controller
     AIController = Cast<AAICompanionController>(GetController());
-    
-    // Initial blackboard update
+    LoadMovementPreset();
     UpdateBlackboard();
 }
 
-// Called every frame
-void AIkarusCharacter::Tick(float DeltaTime)
+void AIkarusCharacter::OnRep_MovementPresetRow()
 {
-    Super::Tick(DeltaTime);
-    
-    // Update blackboard values every frame
+    LoadMovementPreset();
+}
+
+/* ===== frame ===== */
+void AIkarusCharacter::Tick(float)
+{
+    Super::Tick(0.f);
     UpdateBlackboard();
 }
 
-// Called to bind functionality to input
-void AIkarusCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-    Super::SetupPlayerInputComponent(PlayerInputComponent);
-    
-    // Set up movement bindings
-    PlayerInputComponent->BindAxis("MoveForward", this, &AIkarusCharacter::MoveForward);
-    PlayerInputComponent->BindAxis("MoveRight", this, &AIkarusCharacter::MoveRight);
-    
-    // Set up look bindings
-    PlayerInputComponent->BindAxis("Turn", this, &AIkarusCharacter::Turn);
-    PlayerInputComponent->BindAxis("LookUp", this, &AIkarusCharacter::LookUp);
-    
-    // Set up action bindings
-    PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
-    PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
-}
-
+/* ===== Blackboard sync ===== */
 void AIkarusCharacter::UpdateBlackboard()
 {
-    if (AIController)
+    if (!AIController) return;
+    if (UBlackboardComponent* BB = AIController->GetBlackboardComponent())
     {
-        UBlackboardComponent* BlackboardComp = AIController->GetBlackboardComponent();
-        if (BlackboardComp)
+        BB->SetValueAsVector(KEY_CompanionLocation, GetActorLocation());
+
+        if (AActor* Player = Cast<AActor>(BB->GetValueAsObject(KEY_PlayerRef)))
         {
-            // Update location for AI to follow
-            BlackboardComp->SetValueAsVector(FName("OwnerLocation"), GetActorLocation());
-            
-            // Update whether the player is moving
-            bool bIsMoving = GetVelocity().Size() > 10.0f;
-            BlackboardComp->SetValueAsBool(FName("IsPlayerMoving"), bIsMoving);
-            
-            // Reference to self
-            BlackboardComp->SetValueAsObject(FName("OwnerPlayerRef"), this);
+            const float Dist = FVector::Dist(GetActorLocation(), Player->GetActorLocation());
+            BB->SetValueAsFloat(KEY_CompanionDistance, Dist);
+
+            const float Prox = FMath::Clamp(Dist / MaxProximityRange, 0.f, 1.f);
+            BB->SetValueAsFloat(KEY_CompanionProximity, Prox);
+
+            BB->SetValueAsVector(KEY_LastKnownPlayerLocation, Player->GetActorLocation());
         }
     }
 }
 
-void AIkarusCharacter::MoveForward(float Value)
+/* ===== preset loader ===== */
+void AIkarusCharacter::LoadMovementPreset()
 {
-    if ((Controller != nullptr) && (Value != 0.0f))
+    const UDataTable* Table = MovementPresetTable.LoadSynchronous();
+    if (!Table) return;
+
+    const FCompanionMovementPreset* Row =
+        Table->FindRow<FCompanionMovementPreset>(MovementPresetRow, TEXT("MovementPreset"));
+    if (!Row) return;
+
+    IdleSpeed     = Row->IdleSpeed;
+    WalkingSpeed  = Row->WalkingSpeed;
+    RunningSpeed  = Row->RunningSpeed;
+    SprintSpeed   = Row->SprintSpeed;
+    SwimmingSpeed = Row->SwimmingSpeed;
+    FlyingSpeed   = Row->FlyingSpeed;
+}
+
+/* ===== Movement helpers ===== */
+void AIkarusCharacter::SetMovementSpeed(ECompanionMovementSpeed Speed, float& Out)
+{
+    switch (Speed)
     {
-        // Find out which way is forward
-        const FRotator Rotation = Controller->GetControlRotation();
-        const FRotator YawRotation(0, Rotation.Yaw, 0);
-        
-        // Get forward vector
-        const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-        AddMovementInput(Direction, Value);
+        case ECompanionMovementSpeed::Idle:       Out = IdleSpeed;     break;
+        case ECompanionMovementSpeed::Walking:    Out = WalkingSpeed;  break;
+        case ECompanionMovementSpeed::Running:    Out = RunningSpeed;  break;
+        case ECompanionMovementSpeed::Sprinting:  Out = SprintSpeed;   break;
+        case ECompanionMovementSpeed::Swimming:   Out = SwimmingSpeed; break;
+        case ECompanionMovementSpeed::Flying:     Out = FlyingSpeed;   break;
+        default:                                  Out = IdleSpeed;     break;
     }
+
+    if (MoveComp && Speed != ECompanionMovementSpeed::Teleporting)
+        MoveComp->MaxWalkSpeed = Out;
 }
 
-void AIkarusCharacter::MoveRight(float Value)
+void AIkarusCharacter::SetCompanionMovementSpeed_Implementation(
+        ECompanionMovementSpeed Speed, float& Out)
 {
-    if ((Controller != nullptr) && (Value != 0.0f))
-    {
-        // Find out which way is right
-        const FRotator Rotation = Controller->GetControlRotation();
-        const FRotator YawRotation(0, Rotation.Yaw, 0);
-        
-        // Get right vector 
-        const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-        AddMovementInput(Direction, Value);
-    }
+    SetMovementSpeed(Speed, Out);
 }
 
-void AIkarusCharacter::Turn(float Value)
-{
-    AddControllerYawInput(Value);
-}
-
-void AIkarusCharacter::LookUp(float Value)
-{
-    AddControllerPitchInput(Value);
-}
+/* ===== (unused) input helpers ===== */
+void AIkarusCharacter::MoveForward(float V){ if(V && Controller){ const FRotator Yaw(0,Controller->GetControlRotation().Yaw,0); AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::X),V);} }
+void AIkarusCharacter::MoveRight (float V){ if(V && Controller){ const FRotator Yaw(0,Controller->GetControlRotation().Yaw,0); AddMovementInput(FRotationMatrix(Yaw).GetUnitAxis(EAxis::Y),V);} }
+void AIkarusCharacter::Turn      (float V){ AddControllerYawInput  (V); }
+void AIkarusCharacter::LookUp    (float V){ AddControllerPitchInput(V); }

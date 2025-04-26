@@ -11,7 +11,7 @@
  * Behavior Tree Task that locates the player or finds a position near them
  * based on configurable parameters.
  */
-UCLASS(BlueprintType, Blueprintable, meta=(DisplayName="Find Player Location"))
+UCLASS(BlueprintType, meta=(DisplayName="Find Player Location"))
 class IKARUSTHECOMPANION_API UBTTask_FindPlayerLocation : public UBTTask_BlackboardBase
 {
 	GENERATED_BODY()

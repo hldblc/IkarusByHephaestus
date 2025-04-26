@@ -2,12 +2,19 @@
 
 #include "CompanionCore/CoreStructs/CompanionCoreStructs.h"
 
+
 FFollowPlayerMemory::FFollowPlayerMemory()
-	: LastTargetLocation(FVector::ZeroVector)
-	, LastPathUpdateTime(0.0f)
-	, LastStuckCheckTime(0.0f)
-	, LastCheckedPawnLocation(FVector::ZeroVector)
-	, bIsFollowing(false)
+    : LastTargetLocation(FVector::ZeroVector)
+    , LastPathUpdateTime(0.0f)
+    , LastStuckCheckTime(0.0f)
+    , LastCheckedPawnLocation(FVector::ZeroVector)
+    , bIsFollowing(false)
 {
-	CurrentRequestID = FAIRequestID::InvalidRequest;
+    CurrentRequestID = FAIRequestID::InvalidRequest;
+}
+
+FGatherResourceMemory::FGatherResourceMemory()
+    : ResourceType(NAME_None)
+    , LastGatherLocation(FVector::ZeroVector)
+{
 }
