@@ -39,6 +39,7 @@ public class IkarusTheCompanion : ModuleRules
 				"GameplayTags",
 				"NavigationSystem",
 				"EnvironmentQueryEditor",
+				"CommonUI",
 				"UMG",
 				"Slate",
 				"SlateCore",

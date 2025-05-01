@@ -8,7 +8,7 @@
 #include "AICompanionController.generated.h"
 
 class UBehaviorTreeComponent;
-class UCompanionTaskComponent;
+
 
 /**
  * Advanced AI controller for companion characters in multiplayer medieval survival game.
@@ -31,10 +31,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI")
 	UBehaviorTreeComponent* GetBehaviorTreeComponent() const { return BehaviorTreeComponent; }
 	
-	/** Get the companion task component (if available) */
-	UFUNCTION(BlueprintCallable, Category = "AI")
-	UCompanionTaskComponent* GetCompanionTaskComponent() const;
-	
 	/** Set the owner player for this companion (multiplayer support) */
 	UFUNCTION(BlueprintCallable, Category = "AI|Multiplayer")
 	void SetOwnerPlayer(ACharacter* NewOwnerPlayer);
@@ -50,6 +46,14 @@ public:
 	/** Force update all blackboard values related to owner and state */
 	UFUNCTION(BlueprintCallable, Category = "AI|Multiplayer")
 	void ForceUpdateBlackboardValues();
+    
+    /** Debug function that logs current blackboard values for troubleshooting */
+    UFUNCTION(BlueprintCallable, Category = "AI|Debug")
+    void DebugBlackboardValues();
+    
+    /** Log details about the companion's current task and behavior */
+    UFUNCTION(BlueprintCallable, Category = "AI|Debug")
+    void LogCompanionStatus(const FString& Context);
 
 protected:
 	/** Called every frame */
@@ -85,9 +89,6 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="AI", meta=(AllowPrivateAccess="true"))
 	TObjectPtr<UBlackboardComponent> BlackboardComponent;
 	
-	/** Reference to the companion's task component */
-	UPROPERTY(VisibleAnywhere, Category="AI", meta=(AllowPrivateAccess="true"))
-	TObjectPtr<UCompanionTaskComponent> CompanionTaskComponent;
 	
 	/** The player character that owns this companion (replicated for multiplayer) */
 	UPROPERTY(Replicated, BlueprintReadOnly, Category="AI|Multiplayer", meta=(AllowPrivateAccess="true"))

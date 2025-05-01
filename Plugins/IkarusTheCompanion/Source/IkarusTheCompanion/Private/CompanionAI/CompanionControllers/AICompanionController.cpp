@@ -4,7 +4,6 @@
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
 #include "BehaviorTree/BlackboardComponent.h"
-#include "CompanionAI/Components/CompanionTaskComponent.h"
 #include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
 #include "Perception/AIPerceptionComponent.h"
@@ -59,8 +58,6 @@ void AAICompanionController::OnPossess(APawn* InPawn)
 {
     Super::OnPossess(InPawn);
     
-    // Cache the CompanionTaskComponent reference
-    CompanionTaskComponent = InPawn ? InPawn->FindComponentByClass<UCompanionTaskComponent>() : nullptr;
     
     // Initialize and run behavior tree
     if (BehaviorTree && BlackboardComponent)
@@ -73,6 +70,10 @@ void AAICompanionController::OnPossess(APawn* InPawn)
             
             // Run behavior tree
             BehaviorTreeComponent->StartTree(*BehaviorTree);
+            
+            // Log initialization
+            UE_LOG(LogTemp, Log, TEXT("AICompanionController initialized behavior tree for %s"), *GetNameSafe(InPawn));
+            DebugBlackboardValues();
         }
     }
 }
@@ -214,11 +215,15 @@ void AAICompanionController::SetupCompanionBlackboardValues()
     
     // Initialize states
     BlackboardComponent->SetValueAsBool("IsTaskActive", false);
+    BlackboardComponent->SetValueAsBool("IsFollowing", false);
+    BlackboardComponent->SetValueAsBool("IsPatrolling", false);
+    BlackboardComponent->SetValueAsBool("IsGathering", false);
     BlackboardComponent->SetValueAsBool("HasValidTarget", false);
     BlackboardComponent->SetValueAsBool("IsOwnerInDanger", false);
     BlackboardComponent->SetValueAsBool("IsSelfInDanger", false);
     BlackboardComponent->SetValueAsBool("IsResourceDetected", false);
     BlackboardComponent->SetValueAsBool("IsThreatDetected", false);
+    BlackboardComponent->SetValueAsEnum("CurrentTaskType", 0); // None
     
     // Survival-specific values
     BlackboardComponent->SetValueAsInt("InventorySpace", 10);
@@ -226,12 +231,6 @@ void AAICompanionController::SetupCompanionBlackboardValues()
     BlackboardComponent->SetValueAsFloat("OwnerProximity", 0.0f);
     BlackboardComponent->SetValueAsFloat("CurrentStamina", 100.0f);
     BlackboardComponent->SetValueAsFloat("MaxStamina", 100.0f);
-}
-
-// Get the companion task component
-UCompanionTaskComponent* AAICompanionController::GetCompanionTaskComponent() const
-{
-    return CompanionTaskComponent;
 }
 
 // Set the owner player for this companion
@@ -246,14 +245,10 @@ void AAICompanionController::SetOwnerPlayer(ACharacter* NewOwnerPlayer)
     // Update blackboard if available
     if (BlackboardComponent && OwnerPlayer)
     {
-        BlackboardComponent->SetValueAsObject("OwnerPlayerRef", OwnerPlayer);
+        BlackboardComponent->SetValueAsObject("PlayerRef", OwnerPlayer);
         BlackboardComponent->SetValueAsVector("OwnerLocation", OwnerPlayer->GetActorLocation());
-    }
-    
-    // Notify companion of owner change
-    if (CompanionTaskComponent && PreviousOwner != OwnerPlayer)
-    {
-        // Logic for handling owner change could go here
+        
+        UE_LOG(LogTemp, Log, TEXT("AICompanionController: Owner player set to %s"), *GetNameSafe(OwnerPlayer));
     }
 }
 
@@ -299,6 +294,73 @@ void AAICompanionController::ForceUpdateBlackboardValues()
     UpdateThreatAwareness();
     UpdateSocialAwareness();
     UpdatePerceptionSettings();
+    DebugBlackboardValues();
+}
+
+// New debug method to log blackboard values
+void AAICompanionController::DebugBlackboardValues()
+{
+    if (!BlackboardComponent)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AICompanionController: Cannot debug - BlackboardComponent is null"));
+        return;
+    }
+    
+    // Log all important values
+    UE_LOG(LogTemp, Warning, TEXT("---- Blackboard Debug Values ----"));
+    UE_LOG(LogTemp, Warning, TEXT("CurrentTaskType: %d"), BlackboardComponent->GetValueAsEnum("CurrentTaskType"));
+    UE_LOG(LogTemp, Warning, TEXT("IsTaskActive: %s"), BlackboardComponent->GetValueAsBool("IsTaskActive") ? TEXT("true") : TEXT("false"));
+    UE_LOG(LogTemp, Warning, TEXT("IsFollowing: %s"), BlackboardComponent->GetValueAsBool("IsFollowing") ? TEXT("true") : TEXT("false"));
+    UE_LOG(LogTemp, Warning, TEXT("IsPatrolling: %s"), BlackboardComponent->GetValueAsBool("IsPatrolling") ? TEXT("true") : TEXT("false"));
+    UE_LOG(LogTemp, Warning, TEXT("IsGathering: %s"), BlackboardComponent->GetValueAsBool("IsGathering") ? TEXT("true") : TEXT("false"));
+    
+    // Log player reference
+    AActor* Player = Cast<AActor>(BlackboardComponent->GetValueAsObject("PlayerRef"));
+    UE_LOG(LogTemp, Warning, TEXT("PlayerRef: %s"), Player ? *Player->GetName() : TEXT("nullptr"));
+    
+    // Log location
+    FVector PlayerLoc = BlackboardComponent->GetValueAsVector("LastKnownPlayerLocation");
+    UE_LOG(LogTemp, Warning, TEXT("PlayerLocation: %s"), *PlayerLoc.ToString());
+    
+    // Log distance values
+    UE_LOG(LogTemp, Warning, TEXT("OwnerDistance: %.2f"), BlackboardComponent->GetValueAsFloat("OwnerDistance"));
+    UE_LOG(LogTemp, Warning, TEXT("OwnerProximity: %.2f"), BlackboardComponent->GetValueAsFloat("OwnerProximity"));
+}
+
+// Log companion status with context
+void AAICompanionController::LogCompanionStatus(const FString& Context)
+{
+    if (!BlackboardComponent || !GetPawn())
+    {
+        return;
+    }
+    
+    const FString PawnName = GetNameSafe(GetPawn());
+    const int32 TaskType = BlackboardComponent->GetValueAsEnum("CurrentTaskType");
+    const bool bIsActive = BlackboardComponent->GetValueAsBool("IsTaskActive");
+    const bool bIsFollowing = BlackboardComponent->GetValueAsBool("IsFollowing");
+    
+    UE_LOG(LogTemp, Log, TEXT("[%s] - %s: Task=%d, Active=%s, Following=%s"),
+        *Context,
+        *PawnName,
+        TaskType,
+        bIsActive ? TEXT("Yes") : TEXT("No"),
+        bIsFollowing ? TEXT("Yes") : TEXT("No"));
+    
+    // Log location and debug visuals
+    if (bIsFollowing)
+    {
+        const FVector OwnerLoc = BlackboardComponent->GetValueAsVector("OwnerLocation");
+        const FVector MyLoc = GetPawn()->GetActorLocation();
+        const float Distance = FVector::Dist(MyLoc, OwnerLoc);
+        
+        UE_LOG(LogTemp, Log, TEXT("Following - Distance: %.2f, My Location: %s, Target: %s"),
+            Distance, *MyLoc.ToString(), *OwnerLoc.ToString());
+        
+        // Optional debug drawing
+        DrawDebugLine(GetWorld(), MyLoc, OwnerLoc, FColor::Green, false, 5.0f, 0, 2.0f);
+        DrawDebugSphere(GetWorld(), OwnerLoc, 50.0f, 8, FColor::Blue, false, 5.0f);
+    }
 }
 
 // Update companion's awareness of threats in the area

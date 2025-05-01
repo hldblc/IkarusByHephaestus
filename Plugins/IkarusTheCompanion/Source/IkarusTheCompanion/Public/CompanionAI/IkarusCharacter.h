@@ -5,6 +5,8 @@
 #include "GameFramework/Character.h"
 #include "CompanionCore/CoreStructs/CompanionCoreStructs.h"          
 #include "Net/UnrealNetwork.h"
+#include "CompanionInterfaces/CompInteraction.h"
+#include "CompanionCore/CoreUI/AICommandPanel.h"
 #include "IkarusCharacter.generated.h"
 
 class UCharacterMovementComponent;
@@ -15,6 +17,7 @@ UCLASS()
 class IKARUSTHECOMPANION_API AIkarusCharacter
         : public ACharacter
         , public ICompanionInterface
+        , public ICompInteraction
 {
     GENERATED_BODY()
 
@@ -27,9 +30,6 @@ public:
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
 
     /* ---------- Public helpers ----------- */
-    UFUNCTION(BlueprintPure, Category="Companion|Components")
-    FORCEINLINE UCompanionTaskComponent* GetTaskComponent() const noexcept
-    { return CompanionTaskComponent; }
 
     FORCEINLINE UCharacterMovementComponent* GetMoveComp() const noexcept
     { return MoveComp; }
@@ -52,11 +52,35 @@ public:
               BlueprintReadWrite, Category="Companion|Movement")
     FName MovementPresetRow = "Default";
 
-private:
-    /* ---------- Components -------------- */
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta=(AllowPrivateAccess="true"))
-    UCompanionTaskComponent* CompanionTaskComponent = nullptr;
 
+    /* ---------- Interaction ------------- */
+    // ICompInteraction Interface implementation
+    virtual void OnInteract_Implementation(AActor* Interactor) override;
+    virtual bool CanInteract_Implementation(AActor* Interactor) override;
+    virtual FText GetInteractionText_Implementation() override;
+    
+    // Command system
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Companion|Interaction")
+    TArray<FName> AvailableCommands;
+    
+    // Execute a specific command
+    UFUNCTION(BlueprintCallable, Category = "Companion|Interaction")
+    void ExecuteCommand(FName CommandName, AActor* Commander);
+    
+    // Server RPC for command execution
+    UFUNCTION(Server, Reliable, WithValidation)
+    void ServerExecuteCommand(FName CommandName, AActor* Commander);
+private:
+
+    // UI components
+    UPROPERTY(EditDefaultsOnly, Category = "Companion|UI")
+    TSubclassOf<class UAICommandPanel> CommandPanelClass;
+    
+    // Helper to show interaction UI
+    void ShowCommandUI(AActor* Interactor);
+
+    
+    /* ---------- Components -------------- */
     UPROPERTY(Transient) AAICompanionController*      AIController = nullptr;
     UPROPERTY(Transient) UCharacterMovementComponent* MoveComp     = nullptr;
 
@@ -67,6 +91,9 @@ private:
     float SprintSpeed   = 675.f;
     float SwimmingSpeed = 200.f;
     float FlyingSpeed   = 500.f;
+
+    /* ---------- Timers ------------------ */
+    FTimerHandle BlackboardUpdateTimer;
 
     /* ---------- Helpers ------------------ */
     void UpdateBlackboard();

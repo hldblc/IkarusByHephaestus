@@ -25,6 +25,7 @@ class IKARUSTHECOMPANION_API ICompanionInterface
 
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
+	
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Companion|Movement")
 	void SetCompanionMovementSpeed(ECompanionMovementSpeed CompanionSpeed, UPARAM(Ref) float& OutSpeedValue);
